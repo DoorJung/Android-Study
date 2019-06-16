@@ -1,58 +1,41 @@
 package com.icoo.androidstudy.ui.main
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.view.View
-import androidx.recyclerview.widget.LinearLayoutManager
+import com.icoo.androidstudy.BR
 import com.icoo.androidstudy.R
-import com.icoo.androidstudy.data.remote.GithubAPI
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.disposables.CompositeDisposable
-import io.reactivex.schedulers.Schedulers
-import kotlinx.android.synthetic.main.activity_main.*
+import com.icoo.androidstudy.base.BaseActivity
+import com.icoo.androidstudy.base.BaseRecyclerViewAdapter
+import com.icoo.androidstudy.data.model.GithubRepo
+import com.icoo.androidstudy.databinding.ActivityMainBinding
+import com.icoo.androidstudy.databinding.ItemRepoBinding
+import org.koin.androidx.viewmodel.ext.android.viewModel
 
-class MainActivity : AppCompatActivity() {
-    //CompositeDisposable 클래스를 이용하면 생성된 모든 Observable 을 안드로이드 라이프사이클에 맞춰 한번에 모두 해제할 수 있다.
-    private val compositeDisposable = CompositeDisposable()
+class MainActivity : BaseActivity<ActivityMainBinding, MainViewModel>() {
+
+    override val layoutResID: Int
+        get() = R.layout.activity_main
+    override val viewModel: MainViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        viewDataBinding.vm = viewModel
 
-        act_main_bt_search.setOnClickListener {
-            getRepos(act_main_et_name.text.toString())
+        viewDataBinding.actMainRvRepos.adapter =
+            object : BaseRecyclerViewAdapter<GithubRepo, ItemRepoBinding>() {
+                override val layoutResID: Int
+                    get() = R.layout.item_repo
+                override val bindingVariableId: Int
+                    get() = BR.repo
+                override val listener: OnItemClickListener?
+                    get() = null
+            }
+
+        viewDataBinding.actMainBtSearch.setOnClickListener {
+            viewModel.getRepos()
         }
     }
 
-    //onDestroy 라이프사이클에 맞춰 한번에 모두 해제함
-    override fun onDestroy() {
-        compositeDisposable.clear()
-        super.onDestroy()
-    }
-
-    private fun getRepos(owner: String) {
-        compositeDisposable.add(
-            GithubAPI
-                .create()
-                .getRepos(owner)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                //구독할 때 수행할 작업
-                .doOnSubscribe { act_main_pb.visibility = View.VISIBLE }
-                //스트림이 종료될 때 수행할 작업
-                .doOnTerminate { act_main_pb.visibility = View.GONE }
-                .subscribe({
-                    //API를 통해 액세스 토큰을 정상적으로 받았을 때 처리할 작업을 구현합니다.
-                    //작업 중 오류가 발생하면 이 블록은 호출되지 않습니다.
-                    act_main_rv_repos?.apply {
-                        adapter = RepoRecyclerViewAdapter(this@MainActivity, it)
-                        layoutManager = LinearLayoutManager(this@MainActivity)
-                    }
-                }, {
-                    //에러 블록
-                    //네트워크 오류나 데이터 처리 오류 등
-                    //작업이 정상적으로 완료되지 않았을때 호출
-                })
-        )
+    companion object {
+        private val TAG = "MainActivity"
     }
 }
